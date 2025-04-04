@@ -1,133 +1,90 @@
-﻿#Persistent
-#SingleInstance, Force
+﻿#Requires AutoHotkey v2.0
+#SingleInstance Force
+
+; Make the script DPI aware
 DllCall("SetProcessDPIAware")
-SetTimer, CheckForExactColorMatch, 500
 
-exactTargetX := 829
-exactTargetY := 1330
-exactTargetColorBlue := 0xFF5F33
-exactTargetColorLightBlue := 0xFF8B6B
+; Define all targets in a more structured way for easier maintenance
+targets := [
+    {x: 829, y: 1290, colors: [0xFF5F33, 0xFF8B6B]},
+    {x: 376, y: 2118, colors: [0x262626]},
+    {x: 972, y: 1605, colors: [0xCCFF66]},
+    {x: 824, y: 1756, colors: [0x302927]},
+    {x: 975, y: 1313, colors: [0xFFFFFF]},
+    {x: 639, y: 1946, colors: [0x050405]}, ; Variable
+    {x: 802, y: 1555, colors: [0x3B3938]}
+]
 
-newTargetX := 376
-newTargetY := 2118
-newTargetColor := 0x262626
+; Set up the timer - slightly faster interval
+SetTimer(CheckAllColorTargets, 500)
 
-thirdTargetX := 972
-thirdTargetY := 1605
-thirdTargetColor := 0xCCFF66
-
-fourthTargetX := 824
-fourthTargetY := 1756
-fourthTargetColor := 0x302927
-
+; Hotkey for the top-left button
 ':: 
-    CoordMode, Mouse, Screen
-    MouseGetPos, originalX, originalY
-    DllCall("SetCursorPos", "int", 43, "int", 1116)
-    Click
-    DllCall("SetCursorPos", "int", originalX, "int", originalY)
-return
+{
+    ClickAtPosition(43, 1116)
+}
 
-CheckForExactColorMatch:
-    CoordMode, Mouse, Screen
-    MouseGetPos, originalX, originalY
+; Main function to check all color targets
+CheckAllColorTargets() {
+    static lastClickTime := 0
     
+    ; Don't process if we clicked recently (prevents excessive clicking)
+    if (A_TickCount - lastClickTime < 200)
+        return
+        
+    ; Get DC once for all pixel checks
     hDC := DllCall("GetDC", "ptr", 0)
     
-    pixelColor := DllCall("GetPixel", "ptr", hDC, "int", exactTargetX, "int", exactTargetY, "uint")
-    newPixelColor := DllCall("GetPixel", "ptr", hDC, "int", newTargetX, "int", newTargetY, "uint")
-    thirdPixelColor := DllCall("GetPixel", "ptr", hDC, "int", thirdTargetX, "int", thirdTargetY, "uint")
-    fourthPixelColor := DllCall("GetPixel", "ptr", hDC, "int", fourthTargetX, "int", fourthTargetY, "uint")
+    ; Save current mouse position
+    CoordMode("Mouse", "Screen")
+    MouseGetPos(&originalX, &originalY)
     
+    ; Check all targets in order
+    for target in targets {
+        matched := false
+        
+        ; Check if any of the colors match for this target
+        pixelColor := DllCall("GetPixel", "ptr", hDC, "int", target.x, "int", target.y, "uint")
+        
+        for expectedColor in target.colors {
+            if (pixelColor = expectedColor) {
+                matched := true
+                break
+            }
+        }
+        
+        ; If matched, click the target
+        if (matched) {
+            ClickAtPosition(target.x, target.y)
+            lastClickTime := A_TickCount
+            break  ; Only handle one match per cycle
+        }
+    }
+    
+    ; Release DC
     DllCall("ReleaseDC", "ptr", 0, "ptr", hDC)
-    
-    if (pixelColor = 0xFFFFFFFF || newPixelColor = 0xFFFFFFFF || thirdPixelColor = 0xFFFFFFFF) {
-        ToolTip, Could not read pixels
-        SetTimer, RemoveToolTip, -2000
-        return
-    }
-    
-    if (pixelColor = exactTargetColorBlue || pixelColor = exactTargetColorLightBlue) {
-        ox := originalX
-        oy := originalY
-        
-        DllCall("SetCursorPos", "int", exactTargetX, "int", exactTargetY)
-        Sleep, 100
-        MouseMove, 1, 0, 0, R
-        SendInput {LButton down}
-        Sleep, 10
-        SendInput {LButton up}
-        MouseMove, -1, 0, 0, R
-        
-        Sleep, 50
-        MouseMove, ox, oy, 0
-        
-        ToolTip, Clicked! Exact match at %exactTargetX%,%exactTargetY%
-        SetTimer, RemoveToolTip, -1000
-        return
-    }
-    
-    if (newPixelColor = newTargetColor) {
-        ox := originalX
-        oy := originalY
-        
-        DllCall("SetCursorPos", "int", newTargetX, "int", newTargetY)
-        Sleep, 100
-        MouseMove, 1, 0, 0, R
-        SendInput {LButton down}
-        Sleep, 10
-        SendInput {LButton up}
-        MouseMove, -1, 0, 0, R
-        
-        Sleep, 50
-        MouseMove, ox, oy, 0
-        
-        ToolTip, Clicked! Exact match at %newTargetX%,%newTargetY%
-        SetTimer, RemoveToolTip, -1000
-        return
-    }
-    
-    if (thirdPixelColor = thirdTargetColor) {
-        ox := originalX
-        oy := originalY
-        
-        DllCall("SetCursorPos", "int", thirdTargetX, "int", thirdTargetY)
-        Sleep, 100
-        MouseMove, 1, 0, 0, R
-        SendInput {LButton down}
-        Sleep, 10
-        SendInput {LButton up}
-        MouseMove, -1, 0, 0, R
-        
-        Sleep, 50
-        MouseMove, ox, oy, 0
-        
-        ToolTip, Clicked! Exact match at %thirdTargetX%,%thirdTargetY%
-        SetTimer, RemoveToolTip, -1000
-    }
+}
 
-    if (fourthPixelColor = fourthTargetColor) {
-        ox := originalX
-        oy := originalY
-        
-        DllCall("SetCursorPos", "int", fourthTargetX, "int", fourthTargetY)
-        Sleep, 100
-        MouseMove, 1, 0, 0, R
-        SendInput {LButton down}
-        Sleep, 10
-        SendInput {LButton up}
-        MouseMove, -1, 0, 0, R
-        
-        Sleep, 50
-        MouseMove, ox, oy, 0
-        
-        ToolTip, Clicked! Exact match at %fourthTargetX%,%fourthTargetY%
-        SetTimer, RemoveToolTip, -1000
-    }
-return
+; Function to click at a position and return to original positio;n
+ClickAtPosition(x, y) {
+    ; Save current position
+    CoordMode("Mouse", "Screen")
+    MouseGetPos(&ox, &oy)
+    
+    ; Move, click, and return in one smooth operation
+    DllCall("SetCursorPos", "int", x, "int", y)
+    Sleep(10)  ; Small delay for stability
+    
+    ; Small offset click for better reliability
+    MouseMove(1, 0, 0, "R")
+    Send("{LButton down}")
+    Sleep(5)  ; Reduced sleep time for faster operation
+    Send("{LButton up}")
+    
+    ; Return to original position
+    DllCall("SetCursorPos", "int", ox, "int", oy)
+    
+}
 
-RemoveToolTip:
-    ToolTip
-return
-
-^!x::ExitApp
+; Exit script with Ctrl+Alt+X
+^!x::ExitApp()
