@@ -1,65 +1,109 @@
-﻿#Persistent
-SetTimer, SecondMonitorClick, 2000
+﻿#Requires AutoHotkey v2.0
+#SingleInstance Force
 
-SecondMonitorClick:
-    ; Save original mouse position
-    CoordMode, Mouse, Screen
-    MouseGetPos, oX, oY
-    
-    ; Target coordinates for second monitor
-    targetX := 1955
-    targetY := 3070
-    
-    ; Move to target position
-    DllCall("SetCursorPos", "int", targetX, "int", targetY)
-    
-    ; Improved multi-monitor pixel capture
-    hScreenDC := DllCall("GetDC", "ptr", 0)
-    hMemDC := DllCall("CreateCompatibleDC", "ptr", hScreenDC)
-    hBitmap := DllCall("CreateCompatibleBitmap", "ptr", hScreenDC, "int", 1, "int", 1)
-    DllCall("SelectObject", "ptr", hMemDC, "ptr", hBitmap)
-    DllCall("BitBlt", "ptr", hMemDC, "int", 0, "int", 0, "int", 1, "int", 1, "ptr", hScreenDC, "int", targetX, "int", targetY, "uint", 0x40CC0020)
-    
-    ; Get the pixel data
-    VarSetCapacity(pixel, 4, 0)
-    DllCall("GetBitmapBits", "ptr", hBitmap, "uint", 4, "ptr", &pixel)
-    colorValue := NumGet(pixel, 0, "uint")
-    
-    ; Clean up
-    DllCall("DeleteObject", "ptr", hBitmap)
-    DllCall("DeleteDC", "ptr", hMemDC)
-    DllCall("ReleaseDC", "ptr", 0, "ptr", hScreenDC)
-    
-    ; Check if we got a valid reading
-    if (colorValue = 0xFFFFFFFF || colorValue = 0) ; Common error values
-    {
-        ToolTip, Could not read color from second monitor
-    }
-    else
-    {
-        ; Convert BGR to RGB
-        red := (colorValue & 0xFF)
-        green := (colorValue >> 8) & 0xFF
-        blue := (colorValue >> 16) & 0xFF
+; Make the script DPI aware
+DllCall("SetProcessDPIAware")
+
+; Define all targets in a more structured way for easier maintenance
+targets := [
+    {x: 1254, y: 2071, colors: [0xDFB358]}
+]
+
+; Set up the timer - slightly faster interval
+SetTimer(CheckAllColorTargets, 600)
+
+; Hotkey for the top-left button
+':: 
+{
+    RunInCircles()
+}
+
+; Main function to check all color targets
+CheckAllColorTargets() {
+    static lastClickTime := 0
+    ; Don't process if we clicked recently (prevents excessive clicking)
+    if (A_TickCount - lastClickTime < 200)
+        return
         
-        ; Format the display
-        colorDisplay := Format("Secondary Monitor RGB: {1},{2},{3} (0x{:06X})", red, green, blue, colorValue)
-        ToolTip, %colorDisplay%
+    ; Get DC once for all pixel checks
+    hDC := DllCall("GetDC", "ptr", 0)
+    
+    ; Save current mouse position
+    CoordMode("Mouse", "Screen")
+    MouseGetPos(&originalX, &originalY)
+    
+    ; Check all targets in order
+    for target in targets {
+        matched := false
+        ; Check if any of the colors match for this target
+        pixelColor := DllCall("GetPixel", "ptr", hDC, "int", target.x, "int", target.y, "uint")
+        
+        for expectedColor in target.colors {
+            if (pixelColor = expectedColor) {
+                matched := true
+                break
+            }
+        }
+
+        if (matched) {
+            Sleep(2000)
+            ClickAtPosition(target.x, target.y, 1)
+            lastClickTime := A_TickCount
+            break  ; Only handle one match per cycle
+        }
     }
     
-    ; Perform the click
-    DllCall("mouse_event", "uint", 0x02, "uint", 0, "uint", 0, "uint", 0, "ptr", 0) ; Down
-    DllCall("mouse_event", "uint", 0x04, "uint", 0, "uint", 0, "uint", 0, "ptr", 0) ; Up
+    ; Release DC
+    DllCall("ReleaseDC", "ptr", 0, "ptr", hDC)
+}
+
+StrictClickAtPosition(x, y, x1, y1, input, hDC, color, color1) {
+    relevantColor := DllCall("GetPixel", "ptr", hDC, "int", x, "int", y, "uint")
+    comparisonColor := DllCall("GetPixel", "ptr", hDC, "int", x1 "int", y1, "uint")
+
+}
+
+RunInCircles() {
+    ClickAtPosition(382, 1430, 0)
+
+    Send("{W down}")
+    Sleep(100)  ; Reduced sleep time for faster operation
     
+
+    Send("{A down}")
+    Sleep(100)  ; Reduced sleep time for faster operationl
+    ClickAtPosition(382, 1430, 0)
+    Send("{A up}")
+    Send("{W up}")
+
+    ClickAtPosition(382, 1430, 0)
+}
+
+; Function to click at a position and return to original positio;n
+ClickAtPosition(x, y, double) {
+    ; Save current position
+    CoordMode("Mouse", "Screen")
+    MouseGetPos(&ox, &oy)
+    
+    ; Move, click, and return in one smooth operation
+    DllCall("SetCursorPos", "int", x, "int", y)
+    Sleep(10)  ; Small delay for stability
+    
+    ; Small offset click for better reliability
+    MouseMove(1, 0, 0, "R")
+    Send("{LButton down}")
+    Sleep(5)  ; Reduced sleep time for faster operation
+    Send("{LButton up}")
+    if (double) {
+        MouseMove(1, 0, 0, "R")
+        Send("{LButton down}")
+        Sleep(5)  ; Reduced sleep time for faster operation
+        Send("{LButton up}")
+    }
+
     ; Return to original position
-    DllCall("SetCursorPos", "int", oX, "int", oY)
-    
-    ; Remove tooltip after 2 seconds
-    SetTimer, RemoveToolTip, -2000
-return
+    DllCall("SetCursorPos", "int", ox, "int", oy)
+}
 
-RemoveToolTip:
-    ToolTip
-return
-
-^!x::ExitApp
+; Exit script with Ctrl+Alt+X
+#x::ExitApp()
