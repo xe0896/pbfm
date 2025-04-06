@@ -7,7 +7,7 @@ DllCall("SetProcessDPIAware")
 ; Define all targets in a more structured way for easier maintenance
 targets := [
     {x: 1254, y: 2071, colors: [0xDFB358]}, ; Run
-    {x: 29, y: 1507, colors: [0xFFFFFF]}, ; Menu
+    {x: 54, y: 1648, colors: [0x0A1D0C]}, ; Menu
     {x: 909, y: 880 + 1080, colors : [0x59B2E0]} ; Bag
 ]
 
@@ -36,6 +36,8 @@ CheckAllColorTargets() {
     CoordMode("Mouse", "Screen")
     MouseGetPos(&originalX, &originalY)
     currentTime := A_TickCount
+
+    
     
     ; Check all targets in order
     for target in targets {
@@ -49,28 +51,28 @@ CheckAllColorTargets() {
                 break
             }
         }
-        ;ToolTip("Flag value: " flag)
-        if (matched && target.x = 29 && !flag && currentTime - stateChangeTime > 2000) {
+        ToolTip("Flag value: " flag)
+        if (matched && target.x = 54 && !flag && currentTime - stateChangeTime > 2000) {
             BlockInput("On")
-            Send("'")
+            RunInCircles()
             flag := true
             stateChangeTime := currentTime
             lastClickTime := A_TickCount
             BlockInput("Off")
-        } else if (matched && flag && currentTime - stateChangeTime > 1000) {
-            Sleep(2000)
+        } else if (matched && flag && currentTime - stateChangeTime > 200) {
+            Sleep(500)
             ClickAtPosition(target.x, target.y, 1)
             Sleep(100)
-            flag := false
+            flag := false   
             stateChangeTime := currentTime
             lastClickTime := A_TickCount
             break  ; Only handle one match per cycle
-        } else if (matched && target.x = 909 && !flag && currentTime - stateChangeTime > 1000) {
+        } else if (matched && target.x = 909 && !flag && currentTime - stateChangeTime > 200) {
             flag := true
         }
     }
     
-    ; Release DC
+    ; Release DCA
     DllCall("ReleaseDC", "ptr", 0, "ptr", hDC)
 }
 
