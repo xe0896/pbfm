@@ -6,7 +6,9 @@ DllCall("SetProcessDPIAware")
 
 ; Define all targets in a more structured way for easier maintenance
 targets := [
-    {x: 1254, y: 2071, colors: [0xDFB358]}
+    {x: 1254, y: 2071, colors: [0xDFB358]}, ; Run
+    {x: 29, y: 1507, colors: [0xFFFFFF]}, ; Menu
+    {x: 909, y: 880 + 1080, colors : [0x59B2E0]} ; Bag
 ]
 
 ; Set up the timer - slightly faster interval
@@ -21,6 +23,8 @@ SetTimer(CheckAllColorTargets, 600)
 ; Main function to check all color targets
 CheckAllColorTargets() {
     static lastClickTime := 0
+    static flag := false
+    static stateChangeTime := 0
     ; Don't process if we clicked recently (prevents excessive clicking)
     if (A_TickCount - lastClickTime < 200)
         return
@@ -31,6 +35,7 @@ CheckAllColorTargets() {
     ; Save current mouse position
     CoordMode("Mouse", "Screen")
     MouseGetPos(&originalX, &originalY)
+    currentTime := A_TickCount
     
     ; Check all targets in order
     for target in targets {
@@ -44,12 +49,24 @@ CheckAllColorTargets() {
                 break
             }
         }
-
-        if (matched) {
+        ;ToolTip("Flag value: " flag)
+        if (matched && target.x = 29 && !flag && currentTime - stateChangeTime > 2000) {
+            BlockInput("On")
+            Send("'")
+            flag := true
+            stateChangeTime := currentTime
+            lastClickTime := A_TickCount
+            BlockInput("Off")
+        } else if (matched && flag && currentTime - stateChangeTime > 1000) {
             Sleep(2000)
             ClickAtPosition(target.x, target.y, 1)
+            Sleep(100)
+            flag := false
+            stateChangeTime := currentTime
             lastClickTime := A_TickCount
             break  ; Only handle one match per cycle
+        } else if (matched && target.x = 909 && !flag && currentTime - stateChangeTime > 1000) {
+            flag := true
         }
     }
     
